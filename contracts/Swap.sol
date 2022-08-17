@@ -1,83 +1,54 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IERC20 {
-    event Transfer(address indexed from, address indexed to, uint256 value);
- 
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+contract TokenSwap {
+    IERC20 public token1;
+    address public owner1;
+    uint public amount1;
+    IERC20 public token2;
+    address public owner2;
+    uint public amount2;
 
-    function totalSupply() external view returns (uint256);
+    constructor(
+        address _token1,
+        address _owner1,
+        uint _amount1,
+        address _token2,
+        address _owner2,
+        uint _amount2
+    ) {
+        token1 = IERC20(_token1);
+        owner1 = _owner1;
+        amount1 = _amount1;
+        token2 = IERC20(_token2);
+        owner2 = _owner2;
+        amount2 = _amount2;
+    }
 
-    function balanceOf(address account) external view returns (uint256);
+    function swap() public {
+        require(msg.sender == owner1 || msg.sender == owner2, "Not authorized");
+        require(
+            token1.allowance(owner1, address(this)) >= amount1,
+            "Token 1 allowance too low"
+        );
+        require(
+            token2.allowance(owner2, address(this)) >= amount2,
+            "Token 2 allowance too low"
+        );
 
-    function transfer(address to, uint256 amount) external returns (bool);
+        _safeTransferFrom(token1, owner1, owner2, amount1);
+        _safeTransferFrom(token2, owner2, owner1, amount2);
+    }
 
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function _safeTransferFrom(
+        IERC20 token,
+        address sender,
+        address recipient,
+        uint amount
+    ) private {
+        bool sent = token.transferFrom(sender, recipient, amount);
+        require(sent, "Token transfer failed");
+    }
 }
-
-contract Swap is ERC20 {
-
-    uint ID = 1;
-
-    struct SwapRequest {
-        address from;
-        // address to;
-        uint tokenAmountToSwap;
-        // uint tokenAmountNeeded;
-        address tokenAddressToSwap;
-        address tokenAddressNeeded;
-        bool claimed;
-    }
-
-    // txId to the user's details
-    mapping(uint => SwapRequest) swapRequestRecord;
-
-    constructor() {
-
-    }
-
-    function createSwapRequest(address _tokenAddress, uint _amount) external {
-        require(_msgSender() != address(0), "Address zero cannot create a swap request");
-
-        SwapRequest storage swr = swapRequestRecord[ID];
-
-        swr.from = _msgSender();
-        swr.tokenAmountToSwap += _amount;
-        // swr.
-
-        bool transfer_status = IERC20(_tokenAddress).transferFrom(msg.sender, address(this), _amount); // this is the line that is failing
-        require(transfer_status, "Transfer failed");
-
-        // swapRequestRecord[msg.sender][_tokenAddress] += _amount;
-
-        // emit _deposit_erc20(_tokenAddress,msg.sender,_amount);
-
-        ID++;
-    }
-
-
-    function approveSwapRequest(uint _id, uint amount, address _tokenAddress) external {
-        SwapRequest storage swr = swapRequestRecord[_id];
-
-        address _to = swr.from;
-
-        require(userBalance >= _amount, "Insufficient fund");
-
-        bool transfer_status = IERC20(_tokenAddress)._transfer(_msgSender(), _to, amount);
-
-        require(transfer_status, "Transfer failed");
-        
-        bool transfer_status = IERC20(_tokenAddress).transfer(_to, swr.tokenAmountToSwap);
-
-        require(transfer_status, "Withdraw Error");
-
-
-    //    emit _transfer_erc20(_tokenAddress, msg.sender, _to, _amount); 
-    }
-}   
